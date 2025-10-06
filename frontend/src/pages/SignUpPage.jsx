@@ -20,7 +20,11 @@ const SignUpPage = () => {
 	};
 
 	return (
-		<div className='flex flex-col justify-center py-12 sm:px-6 lg:px-8'>
+		<div className='flex flex-col justify-center sm:px-6 lg:px-8'>
+			{/* Render Free Tier Notification */}
+      <div className="mx-auto mb-6 w-full max-w-md p-3 rounded-md bg-yellow-500/20 border-l-4 border-yellow-500 text-yellow-500 text-sm">
+        ⚠️ Backend services are hosted on Renders free tier and may take up to 1 minute to wake up after inactivity. Thanks for your patience!
+      </div>
 			<motion.div
 				className='sm:mx-auto sm:w-full sm:max-w-md'
 				initial={{ opacity: 0, y: -20 }}

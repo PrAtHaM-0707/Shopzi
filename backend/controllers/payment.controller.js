@@ -1,6 +1,7 @@
 import { razorpay } from "../lib/razorpay.js";
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
+import User from "../models/user.model.js"; // Added import
 import crypto from "crypto";
 
 export const createCheckoutSession = async (req, res) => {
@@ -57,6 +58,13 @@ export const checkoutSuccess = async (req, res) => {
     const order = await razorpay.orders.fetch(orderId);
     if (order.status === "paid") {
       const products = JSON.parse(order.notes.products);
+
+      // Check if order with razorpayOrderId already exists
+      const existingOrder = await Order.findOne({ razorpayOrderId: orderId });
+      if (existingOrder) {
+        return res.status(400).json({ message: "Order already exists", orderId: existingOrder._id });
+      }
+
       if (order.notes.couponCode) {
         await Coupon.findOneAndUpdate(
           { code: order.notes.couponCode, userId: order.notes.userId },
@@ -71,16 +79,19 @@ export const checkoutSuccess = async (req, res) => {
           quantity: product.quantity,
           price: product.price,
         })),
-        totalAmount: order.amount / 100, // Convert paise to INR
+        totalAmount: order.amount / 100,
         razorpayOrderId: orderId,
         razorpayPaymentId: paymentId,
       });
 
       await newOrder.save();
 
+      // Clear the user's cart
+      await User.findByIdAndUpdate(order.notes.userId, { $set: { cartItems: [] } });
+
       res.status(200).json({
         success: true,
-        message: "Payment successful, order created, and coupon deactivated if used.",
+        message: "Payment successful, order created, cart cleared, and coupon deactivated if used.",
         orderId: newOrder._id,
       });
     } else {

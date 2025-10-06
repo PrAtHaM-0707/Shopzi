@@ -3,9 +3,11 @@ import { useCartStore } from "../stores/useCartStore";
 import { Link } from "react-router-dom";
 import { MoveRight } from "lucide-react";
 import axios from "../lib/axios";
+import { useState } from "react"; // Added for loading state
 
 const OrderSummary = () => {
-  const { total, subtotal, coupon, isCouponApplied, cart } = useCartStore();
+  const { total, subtotal, coupon, isCouponApplied, cart, clearCart } = useCartStore();
+  const [isProcessing, setIsProcessing] = useState(false); // Added to prevent multiple clicks
 
   const savings = subtotal - total;
   const formattedSubtotal = subtotal.toFixed(2);
@@ -13,6 +15,8 @@ const OrderSummary = () => {
   const formattedSavings = savings.toFixed(2);
 
   const handlePayment = async () => {
+    if (isProcessing) return; // Prevent multiple submissions
+    setIsProcessing(true); // Disable button
     try {
       const res = await axios.post("/payments/create-checkout-session", {
         products: cart,
@@ -21,8 +25,8 @@ const OrderSummary = () => {
 
       const { orderId, totalAmount } = res.data;
       const options = {
-        key: "your_razorpay_key_id", // Replace with actual RAZORPAY_KEY_ID from .env
-        amount: totalAmount * 100, // Convert to paise
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: totalAmount * 100,
         currency: "INR",
         name: "Your Store Name",
         description: "Order Payment",
@@ -35,17 +39,20 @@ const OrderSummary = () => {
               signature: response.razorpay_signature,
             };
             await axios.post("/payments/checkout-success", paymentData);
+            clearCart();
             window.location.href = `/purchase-success?order_id=${response.razorpay_order_id}&payment_id=${response.razorpay_payment_id}&signature=${response.razorpay_signature}`;
           } catch (error) {
             console.error("Error processing payment:", error);
+          } finally {
+            setIsProcessing(false); // Re-enable button
           }
         },
         prefill: {
-          name: "Customer Name", // Replace with user data from useUserStore if available
-          email: "customer@example.com", // Replace with user data from useUserStore if available
+          name: "Customer Name",
+          email: "customer@example.com",
         },
         theme: {
-          color: "#059669", // Tailwind's emerald-600
+          color: "#059669",
         },
       };
 
@@ -53,6 +60,7 @@ const OrderSummary = () => {
       rzp.open();
     } catch (error) {
       console.error("Error initiating checkout:", error);
+      setIsProcessing(false); // Re-enable button on error
     }
   };
 
@@ -92,12 +100,13 @@ const OrderSummary = () => {
         </div>
 
         <motion.button
-          className='flex w-full items-center justify-center rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300'
+          className='flex w-full items-center justify-center rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300 disabled:opacity-50'
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handlePayment}
+          disabled={isProcessing} // Disable button during processing
         >
-          Proceed to Checkout
+          {isProcessing ? "Processing..." : "Proceed to Checkout"}
         </motion.button>
 
         <div className='flex items-center justify-center gap-2'>
